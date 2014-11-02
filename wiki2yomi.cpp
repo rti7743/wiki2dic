@@ -10,7 +10,7 @@
 //分岐点
 static bool isKarano(WCHAR p)
 {
-	if (p == L'-' || p == L'－' || p == L'～')
+	if (p == L'-' || p == L'－'  || p == L'ー' || p == L'～')
 	{
 		return true;
 	}
@@ -163,7 +163,6 @@ static std::wstring cleaningYomi(const std::wstring& titleW,const std::wstring& 
 	std::wstring w = XLWStringUtil::strsnip(yomi,L"{{",L"}}");
 //	w = XLWStringUtil::strsnip(w,L"[",L"]");
 
-
 	w = cleaningYomiForWord(w,L"、");
 	if (w.empty())		return L"";
 
@@ -206,6 +205,10 @@ static std::wstring cleaningYomi(const std::wstring& titleW,const std::wstring& 
 	if ( titleW.size() == 1 && isKanjiOnly(titleW) )
 	{//漢字だけで構成されたもので、なぜか読みが ・ 区切りのものがある.
 		w = cleaningYomiForLongWord(w,L"・");
+		if (w.empty())		return L"";
+		w = cleaningYomiForLongWord(w,L"/");
+		if (w.empty())		return L"";
+		w = cleaningYomiForLongWord(w,L"／");
 		if (w.empty())		return L"";
 	}
 	w = cleaningYomiForWord(w,L"|");
@@ -364,11 +367,111 @@ static std::wstring findYomiForFurigana(const std::wstring& titleW,const std::ws
 	return yomi;
 }
 
-//正しいそうな読みですか？
-static bool checkYomiOrGomi(const std::wstring& yomi)
+//日本語の文字列だけ(漢字かなカタ)の長さを取ります.
+static int NihongoCount(const std::wstring& yomi)
 {
-	if (yomi.empty()) return false;
+	int count = 0;
+	if (yomi.empty()) return count;
+	for( const WCHAR* p = yomi.c_str() ; *p ; p++ )
+	{
+		if ( XLWStringUtil::isKanji(*p) || XLWStringUtil::isKata(*p) || XLWStringUtil::isKana(*p))
+		{
+			count++;
+		}
+	}
+	return count;
+}
 
+//カタカナの塊を取得する.
+static void getKatahiraKatamari(const std::wstring& titleW,std::vector<std::wstring>* outVec)
+{
+	std::wstring katamari ;
+	if (titleW.empty()) return ;
+	for( const WCHAR* p = titleW.c_str() ; *p ; p++ )
+	{
+		if ( XLWStringUtil::isKata(*p) )
+		{
+			katamari += *p;
+		}
+		else
+		{
+			if (!katamari.empty())
+			{
+				outVec->push_back(katamari);
+			}
+		}
+	}
+
+	if (!katamari.empty())
+	{
+		outVec->push_back(katamari);
+	}
+}
+//読みのスキップークを探します.
+// -たろう       0
+// やまだ-       3
+// やまだたろう -1
+static int checkYomiSkipmark(const std::wstring& yomi)
+{
+	if(yomi.size()<=1)
+	{//1文字以下なら意味ない.
+		return -1;
+	}
+
+	for( const WCHAR* p = yomi.c_str() ; *p ; p++ )
+	{
+		if ( isKarano(*p))
+		{
+			int pos =  (int)( p - yomi.c_str() );
+			if (pos <= 0)
+			{//先頭マッチ
+				return pos;
+			}
+
+			if (*(p+1) != 0)
+			{// て-す  みたいに ただのゴミの可能性
+				return -1;
+			}
+			return pos;
+		}
+	}
+
+	//スキップなし
+	return -1;
+}
+
+static std::wstring complateYomi(const std::wstring& titleW,int startKana,int startKanji,const std::wstring& yomi,int yomiSkipMark)
+{
+	assert(yomiSkipMark != -1);
+	assert(startKana != -1);
+
+	assert(startKanji != -1);
+
+
+	if (yomiSkipMark == 0)
+	{// やまだ太郎(-たろう) パティーン 
+		if (startKanji == 0)
+		{//おかしい 漢字が先頭なのだが.
+		}
+		return titleW.substr(0,startKanji) + XLWStringUtil::chop(yomi.substr(yomiSkipMark+1));
+	}
+	else
+	{// 山田たろう(やまだ-) パティーン
+		if (startKanji != 0)
+		{//おかしい 漢字が先頭ではないのだが.
+		}
+		return yomi.substr(0,yomiSkipMark) + XLWStringUtil::chop(titleW.substr(startKana));
+	}
+}
+
+
+
+
+//正しいそうな読みですか？
+static bool checkYomiOrGomi(const std::wstring& titleW,const std::wstring& yomi)
+{
+	//読みの中に　漢字やアルファベットがあると変だよね.
+	if (yomi.empty()) return false;
 	for( const WCHAR* p = yomi.c_str() ; *p ; p++ )
 	{
 		if ( XLWStringUtil::isKanji(*p) )
@@ -380,6 +483,42 @@ static bool checkYomiOrGomi(const std::wstring& yomi)
 			return false;
 		}
 	}
+
+	//スキップマーク入っていますか？
+	if( checkYomiSkipmark(yomi)==-1)
+	{//スキップマークが入っていない。フルワードが有るはず.
+
+		//元々のタイトルにカタカナ/ひらがなが入っているならば、それが読みにも入っているはず.
+
+		std::wstring titleKA= XLWStringUtil::mb_convert_kana(titleW,L"KC");
+		std::wstring yomiKA = XLWStringUtil::mb_convert_kana(yomi,L"KC");
+
+		bool found = false;
+		std::vector<std::wstring> vec;
+		getKatahiraKatamari(titleW,&vec);
+		if (!vec.empty())
+		{
+			for(auto it = vec.begin() ; it != vec.end() ; it++)
+			{
+				if (yomiKA.find(*it) != std::wstring::npos)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+			{//タイトルに入っている　カタカナ/ひらがな部分が、よみにはいっていない.
+				return false;
+			}
+		}
+	}
+
+//	const int titleCount = NihongoCount(titleW);
+//	const int  yomiCount = NihongoCount(yomi);
+//	if (titleCount < yomiCount)
+//	{//読みがあまりにも長い場合おかしいよね。
+//		return false;
+//	}
 
 	//たぶん正しい.
 	return true;
@@ -433,24 +572,24 @@ static std::wstring findYomiImpl(const std::wstring&  titleW,const std::wstring&
 	std::wstring yomi;
 
 	yomi = cleaningYomi(titleW,findYomiForInner(L"'''" + titleW + L"'''", innerTextW));
-	if ( checkYomiOrGomi(yomi) ) return yomi;
+	if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 
 	yomi = cleaningYomi(titleW,findYomiForInner(L"''" + titleW + L"''", innerTextW));
-	if ( checkYomiOrGomi(yomi) ) return yomi;
+	if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 
 	// 山田太郎 -> '''山田 太郎''' のように 姓名の間に スペースを入れるパテーィンがある
 	std::vector<std::wstring> vec = makeSpaceAddData(titleW);
 	for(auto it = vec.begin() ; it != vec.end() ; it ++)
 	{
 		yomi = cleaningYomi(titleW,findYomiForInner(L"'''" + *it + L"'''", innerTextW));
-		if ( checkYomiOrGomi(yomi) ) return yomi;
+		if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 
 		yomi = cleaningYomi(titleW,findYomiForInner(L"''" + *it + L"''", innerTextW));
-		if ( checkYomiOrGomi(yomi) ) return yomi;
+		if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 	}
 
 	yomi = cleaningYomi(titleW,findYomiForFurigana(titleW, innerHeadW));
-	if ( checkYomiOrGomi(yomi) ) return yomi;
+	if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 	
 	return L"";
 }
@@ -483,75 +622,23 @@ std::wstring findYomi(const std::wstring&  titleW,const std::wstring&  innerW)
 	{
 		//もうわけわからんので、 '''(YOMI) があれば調べてみます
 		yomi = cleaningYomi(titleW,findYomiForInner(L"'''", innerTextW));
-		if ( checkYomiOrGomi(yomi) ) return yomi;
+		if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 	}
 
 	{
 		//それでもだめなら、先頭に来る特徴的な言葉を探す
 		yomi = cleaningYomi(titleW,findYomiForFirstKako(L"'''",L"'''", innerTextW));
-		if ( checkYomiOrGomi(yomi) ) return yomi;
+		if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 	}
 
 	{
 		//{{音声ルビ|}}という表現もあるのか (ごろー風)
 		yomi = cleaningYomi(titleW,findYomiForFirstKako(L"{{音声ルビ|",L"}}", innerTextW));
-		if ( checkYomiOrGomi(yomi) ) return yomi;
+		if ( checkYomiOrGomi(titleW,yomi) ) return yomi;
 	}
 	return L"";
 }
 
-
-//読みのスキップークを探します.
-// -たろう       0
-// やまだ-       3
-// やまだたろう -1
-static int checkYomiSkipmark(const std::wstring& yomi)
-{
-	for( const WCHAR* p = yomi.c_str() ; *p ; p++ )
-	{
-		if ( isKarano(*p))
-		{
-			int pos =  (int)( p - yomi.c_str() );
-			if (pos <= 0)
-			{//先頭マッチ
-				return pos;
-			}
-
-			if (*(p+1) != 0)
-			{// て-す  みたいに ただのゴミの可能性
-				return -1;
-			}
-			return pos;
-		}
-	}
-
-	//スキップなし
-	return -1;
-}
-
-static std::wstring complateYomi(const std::wstring& titleW,int startKana,int startKanji,const std::wstring& yomi,int yomiSkipMark)
-{
-	assert(yomiSkipMark != -1);
-	assert(startKana != -1);
-
-	assert(startKanji != -1);
-
-
-	if (yomiSkipMark == 0)
-	{// やまだ太郎(-たろう) パティーン 
-		if (startKanji == 0)
-		{//おかしい 漢字が先頭なのだが.
-		}
-		return titleW.substr(0,startKanji) + XLWStringUtil::chop(yomi.substr(yomiSkipMark+1));
-	}
-	else
-	{// 山田たろう(やまだ-) パティーン
-		if (startKanji != 0)
-		{//おかしい 漢字が先頭ではないのだが.
-		}
-		return yomi.substr(0,yomiSkipMark) + XLWStringUtil::chop(titleW.substr(startKana));
-	}
-}
 
 
 static std::wstring AnalizeImpl(const std::wstring& titleW,const std::wstring& innerW)
@@ -762,12 +849,26 @@ SEXYTEST()
 {
 	std::wstring r;
 
+	{//  /で分けられているパティーン
+		r = AnalizeImpl(L"普",L">\n'''普'''（ふ/ぷ）\n\n*[[プロイセン]]とりわけ[[プロイセン王国]]を指す場合が大きい。\n**例：[[普仏戦争]]\n*[[普通]]の略。\n**例：[[普通選挙]]の略である「普選」。[[普通列車]]・[[各駅停車]]を単に「普」と省略する場合もある。\n\n{{aimai}}\n{{デフォルトソート:ふ}}\n");
+		assert(r == L"ふ");
+	}
+	{//間違ったよみ 取れないのが正しい
+		r = AnalizeImpl(L"110メートルハードル",L"\n'''110メートルハードル'''は、[[陸上競技]]の[[障害走]]の一種で、10台の[[ハードル]]を跳び越えながら110[[メートル]]を走るタイムを競う競技。主に男子の競技であり、女子では[[100メートルハードル]]が行われる。略して'''トッパ（ー）'''とも呼ばれる。\n");
+		assert(r == L"");
+	}
+	{//取れないのが正しい
+		r = AnalizeImpl(L"東京メトロ南北線",L">\n{| {{Railway line header}}\n{{UKrail-header2|[[File:Tokyo Metro logo.svg|17px|東京地下鉄|link=東京地下鉄]] 南北線|#00ada9}}\n|}\n|}\n'''南北線'''（なんぼくせん）は、[[東京都]][[品川区]]の[[目黒駅]]から[[北区 (東京都)|北区]]の[[赤羽岩淵駅]]を結ぶ[[東京地下鉄]]（東京メトロ）が運営する[[鉄道路線]]。[[鉄道要覧]]における名称は'''7号線南北線'''である。\n\n路線名の由来は、東京を南北に貫くことから。車体および路線図や乗り換え案内で使用される[[日本の鉄道ラインカラー一覧|ラインカラー]]は「エメラルドグリーン」、路線記号は'''N'''。[[ファイル:Subway TokyoNamboku.png|21px|南北線]]\n");
+		assert(r == L""); 
+	}
+	{//-ではなくーで省略表記されているパティーン
+		r = AnalizeImpl(L"キットカーソン郡",L">\n\n[[Image:Map of Colorado highlighting Kit Carson County.svg|300px|right|Colorado with Kit Carson highlighted]]\n\n'''キットカーソン郡''' (''ーぐん''、'''''Kit Carson County''''') は[[アメリカ合衆国]][[コロラド州]]に位置する[[郡 (アメリカ合衆国)|郡]]である。[[2000年]]現在、人口は8,011人である。ここの[[郡庁所在地]]は[[バーリントン (コロラド州)|バーリントン]]である。\n");
+		assert(r == L"キットカーソンぐん");
+	}
 	{//よみがなで ・　を使って、複数表記している珍しいパティーン
 		r = AnalizeImpl(L"乳",L">\n日本語の'''乳'''（ち・ちち）には、次のような用法がある。\n* [[乳房]]のこと<ref name=KouJi1246>{{Cite book|和書|year=1989|title=日本語大辞典|edition=第一刷|publisher=講談社|pages=1246|chapter=【乳】|isbn=4-06-121057-2}}</ref>。\n* [[梵鐘]]の突起状装飾のこと<ref>{{cite web|title=梵鐘 対馬佐護観音堂（長崎）伝来\n|publisher=[[文化庁]]、文化遺産オンライン|url= http://bunka.nii.ac.jp/SearchDetail.do?heritageId=214803 |accessdate=2012-05-30}}</ref>。\n* [[旗]]、[[幕]]、[[暖簾]]、[[草鞋]]などの縁に紐や棒を通すためにつけた小さい輪のこと。[[犬]]の[[乳首]]のように等間隔にあることからこのように呼ばれる。\n* 乳汁のこと。本項で詳述する。\n[[File:Human Breastmilk - Foremilk and Hindmilk.png|thumb|人間の母乳をサンプルとした、初乳（左）と後期乳（右）の比較。]]\n[[File:Milk.jpg|thumb|[[パスチャライゼーション]]を施された[[牛乳]]。]]\n'''乳汁'''（にゅうじゅう、ちちしる）とは、'''乳'''（ちち、にゅう）、'''ミルク'''（{{lang-en-short|milk}}）とも言われる、[[動物]]のうち[[哺乳類]]が[[幼児]]に栄養を与えて育てるために母体が作りだす[[分泌液]]である。特に'''母乳'''（ぼにゅう）と呼ぶ場合は、[[ヒト]]の[[女性]]が出す乳汁を指すのが、慣例である。[[誕生]]後の哺乳類が他の[[食物]]を摂取できるようになるまでの間、[[子供]]の成長に見合った[[栄養]]を獲得できる最初の源となる<ref name=pub>{{cite web|title=牛乳、乳製品の知識|publisher=社団法人日本酪農乳業協会|url= http://www.j-milk.jp/publicities/8d863s0000063ng7-att/8d863s0000063nl9.pdf |format=PDF |accessdate=2012-05-30}}</ref>。");
 		assert(r == L"ちち");
 	}
-
-
 	{
 		r = AnalizeImpl(L"CentOS",L">{{Infobox OS\n|name = CentOS\n|logo = [[File:Centos_full.svg|250px]]\n|screenshot = [[Image:CentOS 7.0 GNOME.png|300px]]\n|caption = CentOS 7.0の[[GNOME]] デスクトップ環境\n|website = [http://www.centos.org/ www.centos.org]\n|developer = The CentOS Project（[[レッドハット]]後援）\n|family = [[Linux]]\n|source_model = [[FLOSS]]\n|released  = {{start date and age|df=y|2004|05|14|03}}<ref name=\"CentOS2Announcement\">{{cite web | url=http://lists.centos.org/pipermail/centos/2004-May/000153.html | title=CentOS-2 Final finally released | author=John Newbigin | publisher=centos.org | date=2004-05-14 | accessdate=2014-09-30 }}</ref>\n|frequently_updated = yes\n|kernel_type = [[モノリシックカーネル]]\n|ui = [[GNOME]]または[[KDE]]\n|license = [[GNU General Public License|GPL]]\n|working_state = 開発中\n|supported_platforms = [[IA-32]], [[x64]]\n|updatemodel = \n|package_manager = [[RPM Package Manager|RPM]]\n}}\n\n'''CentOS'''（セントオーエス<REF>{{cite web|url=http://itpro.nikkeibp.co.jp/article/COLUMN/20120223/382669/|title=最新OS＆ソフト わくわくインストール - 第1回 サーバー向け無償OSの定番「CentOS 6.2」：ITpro|date=2012/02/28 (JST)|accessdate=2013-04-20 (JST)|author=斉藤 栄太郎|publisher=Nikkei Business Publications}}</REF><REF>{{cite web|url=http://openstandia.jp/oss_info/centos/|title=CentOS 最新情報 | OpenStandia&trade; （オープンスタンディア）|date=|accessdate=2013-04-20 (JST)|author=OpenStandia|publisher=http://openstandia.jp/}}</REF>, <REF group=\"注釈\">[http://www.centos.org/modules/newbb/viewtopic.php?viewmode=flat&topic_id=925&forum=18 公式フォーラム]等を中心に sent-oss（セントス）と発音する例も。</REF>）は、[[Red Hat Enterprise Linux]]（以下「RHEL」と呼ぶ）との完全互換を目指したフリーの[[Linuxディストリビューション]]である。");
 		assert(r == L"セントオーエス");

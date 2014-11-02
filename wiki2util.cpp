@@ -413,12 +413,109 @@ bool checkGomiPage(const std::wstring& title)
 		return true;
 	}
 
-	//数字から始まり、年で終わるのは、年号だろう.
-	if (title[0] >= '0' && title[0] <= '9' )
+	if (title[0] >= L'0' && title[0] <= L'9' )
 	{
-		if ( XLWStringUtil::strend(title.c_str() , L"年") )
-		{
+		if(title.size()==1)
+		{//数字1つ
 			return true;
+		}
+		if ( XLWStringUtil::strend(title.c_str() , L"年") )
+		{//数字から始まり、年で終わるのは、年号だろう.
+			return true;
+		}
+
+		int i = 1;
+		if (title[i] >= L'0' && title[i] <= L'9' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"11"とか
+				return true;
+			}
+		}
+		if (title[i] == L'月' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"1月"とか
+				return true;
+			}
+		}
+		if (title[i] >= L'0' && title[i] <= L'9' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"11月1"とか
+				return true;
+			}
+		}
+		if (title[i] >= L'0' && title[i] <= L'9' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"11月11"とか
+				return true;
+			}
+		}
+		if (title[i] == L'日' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"1日" or "1月1日" とか
+				return true;
+			}
+		}
+		if (title[i] == L'年' )
+		{
+			i++;
+			if(title.size()==i)
+			{//"1111年"とか
+				return true;
+			}
+			if (title[i] >= L'0' && title[i] <= L'9' )
+			{
+				i++;
+				if(title.size()==i)
+				{//"1111年1"とか
+					return true;
+				}
+			}
+			if (title[i] >= L'0' && title[i] <= L'9' )
+			{
+				i++;
+				if(title.size()==i)
+				{//"1111年11"とか
+					return true;
+				}
+				if (title[i] == L'月' )
+				{
+					i++;
+					if(title.size()==i)
+					{//"1111年11月"とか
+						return true;
+					}
+					if (title[i] >= L'0' && title[i] <= L'9' )
+					{
+						i++;
+						if(title.size()==i)
+						{//"1111年1"とか
+							return true;
+						}
+					}
+					if (title[i] >= L'0' && title[i] <= L'9' )
+					{
+						i++;
+						if(title.size()==i)
+						{//"1111年11"とか
+							return true;
+						}
+						if (title[i] == L'日' )
+						{//1111年11月11日
+							return true;
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -485,6 +582,18 @@ SEXYTEST()
 {
 	bool r;
 	{
+		r = checkGomiPage(L"国鉄ダイヤ改正");
+		assert(!r);
+
+		r = checkGomiPage(L"1942年11月15日国鉄ダイヤ改正");
+		assert(r);
+
+		r = checkGomiPage(L"1月");
+		assert(r);
+
+		r = checkGomiPage(L"1月1日");
+		assert(r);
+
 		r = checkGomiPage(L"大田広域市都市鉄道公社100系電車");
 		assert(r);
 
