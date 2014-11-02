@@ -398,6 +398,7 @@ static void getKatahiraKatamari(const std::wstring& titleW,std::vector<std::wstr
 			if (!katamari.empty())
 			{
 				outVec->push_back(katamari);
+				katamari = L"";
 			}
 		}
 	}
