@@ -202,10 +202,15 @@ static std::wstring cleaningYomi(const std::wstring& titleW,const std::wstring& 
 	w = cleaningYomiForWord(w,L"<");
 	if (w.empty())		return L"";
 
-	if ( titleW.size() == 1 && isKanjiOnly(titleW) )
-	{//漢字だけで構成されたもので、なぜか読みが ・ 区切りのものがある.
-		w = cleaningYomiForLongWord(w,L"・");
-		if (w.empty())		return L"";
+	if ( isKanjiOnly(titleW) )
+	{
+		if ( titleW.size() <=2)
+		{//漢字だけで構成されたもので、なぜか読みが ・ 区切りのものがある.
+		 //単純にやると、人名とかで・があるものがあるので、長さに制限をかけてる
+			w = cleaningYomiForLongWord(w,L"・");
+			if (w.empty())		return L"";
+		}
+		// スラッシュで区切るパティーンも有るらしい
 		w = cleaningYomiForLongWord(w,L"/");
 		if (w.empty())		return L"";
 		w = cleaningYomiForLongWord(w,L"／");
