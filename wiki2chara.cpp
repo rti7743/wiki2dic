@@ -2567,7 +2567,7 @@ bool findFantasicCharaImpl(const std::wstring& titleW,const std::wstring& innerW
 	{//これはどうしようもない。強制するしかない.
 		route=10;
 	}
-	if (titleW==L"BB戦士三国伝")
+	if (titleW==L"BB戦士三国伝" ||titleW==L"少林サッカー")
 	{//無理 ↓これは無理だろう。かんべんしてくれ
 		//; [[劉備]]ガンダム（[[ガンダム (架空の兵器)|RX-78-2 ガンダム]]）
 		//: 声 - [[梶裕貴]]
