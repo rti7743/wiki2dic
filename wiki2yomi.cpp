@@ -4,6 +4,7 @@
 #include "wiki2yomi.h"
 #include "wiki2util.h"
 #include "option.h"
+#include "XLFileUtil.h"
 
 
 
@@ -160,8 +161,11 @@ static std::wstring cleaningYomi(const std::wstring& titleW,const std::wstring& 
 {
 	if (yomi.empty() ) return yomi;
 	//{{}}が始まるゴミがあったら消します	yomi = "げんご {{lang-la-short|Lingua}}、{{lang-en-short|Language}}"
-	std::wstring w = XLWStringUtil::strsnip(yomi,L"{{",L"}}");
-//	w = XLWStringUtil::strsnip(w,L"[",L"]");
+//	std::wstring w = XLWStringUtil::strsnip(yomi,L"{{",L"}}");
+	std::wstring w=yomi;
+
+	w = cleaningYomiForWord(w,L"{{");
+	if (w.empty())		return L"";
 
 	w = cleaningYomiForWord(w,L"、");
 	if (w.empty())		return L"";
@@ -599,8 +603,14 @@ static std::wstring findYomiImpl(const std::wstring&  titleW,const std::wstring&
 	
 	return L"";
 }
+
 std::wstring findYomi(const std::wstring&  titleW,const std::wstring&  innerW)
 {
+//	if(L"社会"==titleW)
+//	{
+//		XLFileUtil::write("社会.txt",_W2A(innerW));
+//	}
+
 	//余計な記号を消した本文を作成します.
 	std::wstring innerTextW = makeInnerText(innerW);
 	//infobox用に頭出しデータを作る
@@ -855,6 +865,10 @@ SEXYTEST()
 {
 	std::wstring r;
 
+	{//英語読みと誤読してしまうパティーン
+		r = AnalizeImpl(L"社会",L">{{Otheruses}}\n{{社会学}}\n\n'''社会'''（しゃかい {{lang-en-short|Society}}ソサイエティ、{{lang-la-short|Humana societas}}フーマーナ・ソキエタース）は、[[人間]]と人間のあらゆる関係を指す。<ref>社会は多義的であるために定義することは非常に難しい。詳細は後述することとし、ここでは最も簡易な定義を用いた。</ref>\n\n社会の範囲は非常に幅広く、単一の組織や結社などの部分社会から国民を包括する全体社会までさまざまである。社会の複雑で多様な行為や構造を研究する[[社会科学]]では[[人口]]、[[政治]]、[[経済]]、[[軍事]]、[[文化]]、[[技術]]、[[思想]]などの観点から社会を観察する。\n");
+		assert(r == L"しゃかい");
+	}
 	{//  /で分けられているパティーン
 		r = AnalizeImpl(L"普",L">\n'''普'''（ふ/ぷ）\n\n*[[プロイセン]]とりわけ[[プロイセン王国]]を指す場合が大きい。\n**例：[[普仏戦争]]\n*[[普通]]の略。\n**例：[[普通選挙]]の略である「普選」。[[普通列車]]・[[各駅停車]]を単に「普」と省略する場合もある。\n\n{{aimai}}\n{{デフォルトソート:ふ}}\n");
 		assert(r == L"ふ");
