@@ -403,6 +403,7 @@ bool checkGomiPage(const std::wstring& title)
 //	if ( XLWStringUtil::strstr(title.c_str() , L"：") ) return true;
 	if ( XLWStringUtil::strstr(title.c_str() , L"最近の出来事") ) return true;
 	if ( XLWStringUtil::strstr(title.c_str() , L"…") ) return true;
+	if ( XLWStringUtil::strstr(title.c_str() , L"(旧暦)") ) return true;
 
 //	//先頭がシャープ
 //	if ( (title[0] == '#')   )	return true;
@@ -518,6 +519,13 @@ bool checkGomiPage(const std::wstring& title)
 			}
 		}
 	}
+	if ( XLWStringUtil::strfirst(title.c_str() , L"旧暦") )
+	{
+		if ( XLWStringUtil::strend(title.c_str() , L"日") )
+		{
+			return true;
+		}
+	}
 
 	if ( XLWStringUtil::strstr(title.c_str() , L"年") )
 	{
@@ -589,6 +597,9 @@ SEXYTEST()
 		assert(r);
 
 		r = checkGomiPage(L"1月");
+		assert(r);
+
+		r = checkGomiPage(L"12月");
 		assert(r);
 
 		r = checkGomiPage(L"1月1日");
