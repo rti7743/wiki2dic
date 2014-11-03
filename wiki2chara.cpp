@@ -168,6 +168,7 @@ static bool checkStopString(const std::wstring& str)
 		,L"エグゼクティブプロデューサー"
 		,L"プロデューサー"
 		,L"ディレクター"
+		,L"スタイリスト"
 		,NULL
 	};
 	for(const WCHAR** p = strW0 ; *p ; p++)
@@ -461,6 +462,22 @@ static bool checkGomiString(const std::wstring& str)
 		,L"アニメ第四作"
 		,L"ディレクターズカット"
 		,L"実写映画版"
+		,L"外伝"
+		,L"全作品"
+		,L"FC"
+		,L"SFC"
+		,L"GB"
+		,L"GB1"
+		,L"GB2"
+		,L"GBA"
+		,L"N64"
+		,L"Wii"
+		,L"妖精"
+		,L"貴族"
+		,L"職人"
+		,L"パチンコ"
+		,L"パチンコ版"
+		,L"BeeTV版"
 		,NULL
 	};
 	for(const WCHAR** p = strW0; *p ; p++)
@@ -497,6 +514,7 @@ static bool checkGomiString(const std::wstring& str)
 		,L"一部ルートのみ"
 		,L"NEW VISIONの"
 		,L"戦闘中のみ"
+		,L"外伝以外"
 		,NULL
 	};
 	for(const WCHAR** p = strW1; *p ; p++)
@@ -2460,6 +2478,7 @@ bool findFantasicCharaImpl(const std::wstring& titleW,const std::wstring& innerW
 	const int koumokuPattern3 = tryKoumokuPatternN(titleW,w,3);					//3
 	const int koumokuPattern4 = tryKoumokuPatternN(titleW,w,4);					//4
 	const int koumokuPattern5 = tryKoumokuPatternN(titleW,w,5);					//5
+//	const int KoumokuGAPattern2 = tryKoumokuGAPatternN(titleW,w,2);				//6
 //	const int KoumokuGAPattern3 = tryKoumokuGAPatternN(titleW,w,3);				//7
 //	const int KoumokuGAPattern4 = tryKoumokuGAPatternN(titleW,w,4);				//8
 //	const int KoumokuGAPattern5 = tryKoumokuGAPatternN(titleW,w,5);				//9
@@ -2544,6 +2563,16 @@ bool findFantasicCharaImpl(const std::wstring& titleW,const std::wstring& innerW
 	{//これはどうしようもない。強制するしかない.
 		route=7;
 	}
+	if (titleW == L"風来のシレンのキャラクター一覧")
+	{//これはどうしようもない。強制するしかない.
+		route=10;
+	}
+	if (titleW==L"BB戦士三国伝")
+	{//無理 ↓これは無理だろう。かんべんしてくれ
+		//; [[劉備]]ガンダム（[[ガンダム (架空の兵器)|RX-78-2 ガンダム]]）
+		//: 声 - [[梶裕貴]]
+		route=0;
+	}
 
 	switch(route)
 	{
@@ -2551,6 +2580,7 @@ bool findFantasicCharaImpl(const std::wstring& titleW,const std::wstring& innerW
 	case 3: parseKoumokuPatternN(titleW,w,outCharaList,3); break;
 	case 4: parseKoumokuPatternN(titleW,w,outCharaList,4); break;
 	case 5: parseKoumokuPatternN(titleW,w,outCharaList,5); break;
+	case 6: parseKoumokuGAPatternN(titleW,w,outCharaList,2); break;
 	case 7: parseKoumokuGAPatternN(titleW,w,outCharaList,3); break;
 	case 8: parseKoumokuGAPatternN(titleW,w,outCharaList,4); break;
 	case 9: parseKoumokuGAPatternN(titleW,w,outCharaList,5); break;
@@ -2901,6 +2931,28 @@ void wiki2charaConvert(const std::string& filename)
 
 SEXYTEST()
 {
+
+
+
+	{
+		//こんなのパース出るわけ無いだろう。[[劉備]]ガンダムとか、いいかげんにしろ
+		std::vector<FantasicCharaSt> charaList;
+		bool r = findFantasicChara(L"BB戦士三国伝",L">\n; [[劉備]]ガンダム（[[ガンダム (架空の兵器)|RX-78-2 ガンダム]]）\n: 声 - [[梶裕貴]]\n: '''龍帝を継ぐ者'''。本作の[[主人公]]。三璃紗の北部、幽州の楼桑村出身の若きサムライ。かつての白龍頑駄無（白龍大帝）同様、遥か昔に三璃紗を治めていた古代の英雄・三侯のひとりである'''龍帝'''の血をひき、その魂を受け継ぐ若者。決して悪を許さず、正義のためには何者にも恐れず立ち向かう侠の中の侠で、義に厚く頼れる兄貴分として慕われ、彼の元に多くの武将達が集う。曲がったことが大嫌いな熱血漢だが、当初は若さと義侠心ゆえに直情のまま行動しがちであった。普段は優しい陽気な性格だが、楽天的なお人よしでもあるため、ややドジで[[天然ボケ]]な一面もある。\n: [[桃園の誓い]]の後に反董卓連合に参加し、虎牢城の戦いでは後に宿敵となる曹操を始めとする様々な侠たちの信念や死とぶつかり戸惑っていたが、己が正義を定め、戦いに身を投じることを決意する。",&charaList);
+		assert(charaList.size() == 0);
+	}
+	{
+		std::vector<FantasicCharaSt> charaList;
+		bool r = findFantasicChara(L"風来のシレンのキャラクター一覧",L"\n\n{{Pathnav|風来のシレン|frame=1}}\n'''風来のシレンのキャラクター一覧'''（ふうらいのシレンのキャラクターいちらん）は、[[チュンソフト]]から発売されている[[ローグライクゲーム]]、不思議のダンジョンシリーズの『[[風来のシレン]]』に登場するキャラクター一覧。\n\n以下は、本シリーズ作品に登場する、架空のキャラクターの一覧である。括弧内は登場作品。声優は現在パチンコのみ存在。\n\nなお、作品名は以下の略称を用いる。\n\n* SFC: [[不思議のダンジョン2 風来のシレン]]\n* GB1: [[不思議のダンジョン 風来のシレンGB 月影村の怪物]]\n* GB2: [[不思議のダンジョン 風来のシレンGB2 砂漠の魔城]]\n* N64: [[不思議のダンジョン 風来のシレン2 鬼襲来!シレン城!]]\n* 外伝: [[不思議のダンジョン 風来のシレン外伝 女剣士アスカ見参!]]\n* DS: [[不思議のダンジョン 風来のシレンDS]]\n* Wii: [[不思議のダンジョン 風来のシレン3 からくり屋敷の眠り姫]]\n* DS2: [[不思議のダンジョン 風来のシレンGB2 砂漠の魔城|不思議のダンジョン 風来のシレンDS2 砂漠の魔城]]\n* 4: [[不思議のダンジョン 風来のシレン4 神の眼と悪魔のヘソ]]\n* 5: [[不思議のダンジョン 風来のシレン5 フォーチュンタワーと運命のダイス]]\n\n== 主人公 ==\n; シレン (外伝以外の全作品)\n: 友の形見である[[三度笠]]と縞[[合羽]]を身に纏い、語り[[イタチ]]のコッパと共にこばみ谷へとやってきた風来人。男性。今は亡き友？との約束を果たすため、テーブルマウンテンの頂上にあるという「太陽の大地」を目指す（SFC、DS）。幼少期にはナタネ村で城を築き（N64）、太陽の大地への到達後は月影村にて怪物オロチを倒し（GB1）、その後迷い込んだ砂漠の中にあった魔城に挑む（GB2）など、数々の冒険を乗り越える風来人。特殊な場合を除けば、喋ることはない（選択肢の会話によると一人称は「俺」と思われる）。3の過去世界によると、先祖は豪族であるかぐやの父に仕える武士だった。かぐやの悲劇の後は暇乞いし、風来人に。以後、先祖代々風来人をしている。\n; アスカ (外伝)\n: [[声優|声]] - [[日笠陽子]] (パチンコ)\n: かつてナタネ村の騒動のとき（N64）に、シレンと共に旅をしたことがある風来人。女性。修行の旅の途中で天輪国に訪れた際、シレンの相棒コッパと再会する。\n",&charaList);
+		assert(charaList.size() == 2);
+		assert(charaList[0].name == L"シレン");
+		assert(charaList[0].yomi == L"シレン");
+		assert(charaList[0].actor1 == L"");
+		assert(charaList[0].actor2== L"");
+		assert(charaList[1].name == L"アスカ");
+		assert(charaList[1].yomi == L"アスカ");
+		assert(charaList[1].actor1 == L"日笠陽子");
+		assert(charaList[1].actor2== L"");
+	}
 	{
 		std::vector<FantasicCharaSt> charaList;
 		bool r = findFantasicChara(L"桜Trick",L"\n== 登場人物 ==\n; 高山 春香（たかやま はるか）\n: [[声優|声]] - [[戸松遥]]\n: 誕生日：[[8月25日]] / 星座：[[処女宮|乙女座]]<ref name=\"ikkan\">{{Cite book|和書|author=タチ|title=桜Trick 1|page=2|publisher=[[芳文社]]|isbn=978-4-8322-4187-9|date=2012-09-11}}</ref> / 血液型：A型 / 身長：158㎝ / 体重：47㎏<ref name=\"sirabus\">『桜Trick TVアニメ公式ガイドブック 縲怎qミツのシラバス縲怐x</ref>\n: 本作の主人公。一人称は「私」。美里西高校の一年生。大きな白い[[リボン]]がトレードマーク。ニックネームは「春ぽっぽ」。\n; 園田 優（そのだ ゆう）\n: 声 - [[井口裕香]]\n: 誕生日：[[6月24日]] / 星座：[[巨蟹宮|蟹座]]<ref name=\"ikkan\" />/血液型：AB型 / 身長：149㎝ / 体重：42㎏<ref name=\"sirabus\"/>\n: 本作のもう一人の主人公。一人称は「私」。春香の親友でクラスメイト。花の髪飾り（蛍光塗料付き）がトレードマーク。\n\n",&charaList);
@@ -2914,8 +2966,6 @@ SEXYTEST()
 		assert(charaList[1].actor2== L"");
 		assert(charaList.size() == 2);
 	}
-
-
 	{
 		std::vector<FantasicCharaSt> charaList;
 		bool r = findFantasicChara(L"都立水商!",L"\n== 登場人物 ==\n=== 教師 ===\n; 田辺圭介（たなべ けいすけ）/24歳: 主人公。社会科の教師で、水商第一寮長、フーゾク科の担任。前の学校で生徒とのトラブルがあり都立水商へ異動。何でも首を突っ込むお節介な存在。だが、いつもそのおかげで都立水商に貢献している。酒を飲むと理性を失くすほど悪酔いし、友人を何人も失くしている。吉岡に惚れており、吉岡からも好かれているが、互いの思いには気づいていない。また複数の女性や一部の男性から好意を持たれるものの、超鈍感なために告白を受けるまでそれに気がつかなかった。最終的に吉岡と結婚し、北海道に新設された姉妹校へ転任する。\n; 矢倉茂夫（やぐら しげお）: 都立水商の校長。いろんな意味で凄い人。お水の世界は落ちこぼれの世界ではないと常に語っており、学校のためならば自分を犠牲にもしかねない人物。\n\n",&charaList);
