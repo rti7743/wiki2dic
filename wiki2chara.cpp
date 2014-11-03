@@ -114,7 +114,7 @@ static bool isActorFlag(const std::wstring& str)
 		|| str == L"キャスティングボイス" || str == L"CV キャスティングボイス"
 		|| str == L"日本語吹替" || str == L"吹替" || str == L"日本語吹替版" || str == L"吹替版" 
 		|| str == L"日本語吹き替え" || str == L"日本語吹替え"  || str == L"日本語版吹替=" || str == L"吹き替え"
-		|| str == L"日本語版" || str == L"日本語" || str == L"原語・日本語版"
+		|| str == L"日本語版" || str == L"日本語" || str == L"原語・日本語版" || str == L"日本語版声優"
 		|| str == L"声・" || str == L"英語"	|| str == L"英" || str == L"英語版"
 		|| str == L"日本語・英語共に"
 		|| str == L"日本版" || str == L"日"
@@ -478,6 +478,29 @@ static bool checkGomiString(const std::wstring& str)
 		,L"パチンコ"
 		,L"パチンコ版"
 		,L"BeeTV版"
+		,L"先生"
+		,L"主人公"
+		,L"前作主人公"
+		,L"王子"
+		,L"謎の男"
+		,L"黄色"
+		,L"イメージカラー"
+		,L"所属クラス"
+		,L"Aクラス"
+		,L"趣味"
+		,L"正式名"
+		,L"総督"
+		,L"調査官"
+		,L"地方検事"
+		,L"刑事"
+		,L"地方検事補"
+		,L"警部補"
+		,L"名称不明"
+		,L"通称"
+		,L"上司"
+		,L"部下"
+		,L"元彼女"
+		,L"blackops"
 		,NULL
 	};
 	for(const WCHAR** p = strW0; *p ; p++)
@@ -1187,17 +1210,22 @@ static void completeFantasicCharaImpl(FantasicCharaSt* outST,const std::vector<s
 			const std::wstring name = chopWikimarkWord(*it);
 
 			if(isKanjiOnly2(name))
-			{//名前が空で、漢字のみの部分があれば、名前
+			{//漢字のみの部分があれば、名前
 				outST->name = cleanSpace(name);
 				continue;
 			}
 			else if(isHiraKataKanjiOnly(name))
-			{//名前が空で、ひらがな、カタカナ、漢字のみの部分があれば、名前
+			{//ひらがな、カタカナ、漢字のみの部分があれば、名前
 				outST->name = cleanSpace(name);
 				continue;
 			}
 			else if(isAlphanumOnly(name))
-			{//名前が空で、アルファベット等のみであれば名前かなあ
+			{//アルファベット等のみであれば名前かなあ
+				outST->name = cleanSpace(name);
+				continue;
+			}
+			else if ( outST->yomi.empty() && (isHiraKataOnlyEx(name) || isHiraKataInner(name))  )
+			{//読みが空で、ひらがな・カタカナで作られている
 				outST->name = cleanSpace(name);
 				continue;
 			}
@@ -1230,16 +1258,56 @@ static void completeFantasicCharaImpl(FantasicCharaSt* outST,const std::vector<s
 	}
 }
 
+//ワンライナー
+//ワンライナーだと、キャラと役者の区別がとてもつきづらい.
+static void completeFantasicCharaOneLiner(const std::wstring& titleW,const std::wstring& top,std::vector<FantasicCharaSt>* outCharaList)
+{
+	FantasicCharaSt st;
+
+	std::wstring w = top;
+	if ( w.find(L"]] - [[") != std::wstring::npos)
+	{
+		//* [[モンキー・D・ルフィ]] - [[田中真弓]]
+		//]]- [[ となったとき、隠れている役者フラグを挿入する
+		w = XLWStringUtil::replace(w,L"]] - [[",L"]]、演:[[");
+	}
+
+	{
+		std::vector<std::wstring> vec;
+		parseOneLine(w,&vec,true);
+		completeFantasicCharaImpl(&st,vec,true);
+	}
+
+	if (st.name.size()>=1 )
+	{
+		if (!st.yomi.empty())
+		{
+			if ( ! checkYomigana(st.name, st.yomi) )
+			{
+				st.yomi = L"";
+			}
+		}
+		outCharaList->push_back(st);
+	}
+}
+
 
 static void completeFantasicChara(const std::wstring& titleW,const std::wstring& top,const std::wstring& sub1,const std::wstring& sub2,const std::wstring& sub3,std::vector<FantasicCharaSt>* outCharaList,bool isKomokuPattern)
 {
 	FantasicCharaSt st;
 
 	bool isFirstLine = true;
-//	isFirstLine = !(sub1.empty() && sub2.empty() && sub3.empty());
+	std::wstring w = top;
+	if ( w.find(L"]] - [[") != std::wstring::npos)
+	{
+		//* [[モンキー・D・ルフィ]] - [[田中真弓]]
+		//]]- [[ となったとき、隠れている役者フラグを挿入する
+		w = XLWStringUtil::replace(w,L"]] - [[",L"]]、演:[[");
+	}
+
 	{
 		std::vector<std::wstring> vec;
-		parseOneLine(top,&vec,isFirstLine);
+		parseOneLine(w,&vec,isFirstLine);
 		completeFantasicCharaImpl(&st,vec,isFirstLine);
 	}
 
@@ -1878,7 +1946,7 @@ static void parseTablePattern(const std::wstring& titleW,const std::wstring& inn
 		std::wstring top = innerW.substr(pos+2,endpos-(pos+2));
 		top = XLWStringUtil::replace(top,L"||",L" ");//テーブルの区切り文字をスペースに
 		
-		completeFantasicChara(titleW,top,L"",L"",L"",outCharaList,false);
+		completeFantasicCharaOneLiner(titleW,top,outCharaList);
 
 		pos = endpos;
 	}
@@ -1999,9 +2067,7 @@ static void parseAsterLinerPattern(const std::wstring& titleW,const std::wstring
 			}
 		}
 
-		// - は、役者と誤爆するので危険なので消す.
-		top = XLWStringUtil::replace(top,L" - ",L"");
-		completeFantasicChara(titleW,top,L"",L"",L"",outCharaList,false);
+		completeFantasicCharaOneLiner(titleW,top,outCharaList);
 	}
 }
 
@@ -2125,7 +2191,7 @@ static void parseSemiColonLinerPattern(const std::wstring& titleW,const std::wst
 			continue;
 		}
 		top = top.substr(0,splitPos);
-		completeFantasicChara(titleW,top,L"",L"",L"",outCharaList,false);
+		completeFantasicCharaOneLiner(titleW,top,outCharaList);
 	}
 }
 
@@ -2935,6 +3001,38 @@ SEXYTEST()
 
 
 	{
+		std::vector<FantasicCharaSt> charaList;
+		bool r = findFantasicChara(L"ONE PIECE “3D2Y” エースの死を越えて! ルフィ仲間との誓い",L"\n== 登場人物 ==\n=== 原作キャラクター ===\n; [[海賊 (ONE PIECE)#麦わらの一味|麦わらの一味]]\n* [[モンキー・D・ルフィ]] - [[田中真弓]]\n* [[ロロノア・ゾロ]] - [[中井和哉]]\n* [[ナミ (ONE PIECE)|ナミ]] - [[岡村明美]]\n* [[ウソップ]] - [[山口勝平]]\n* [[サンジ]] - [[平田広明]]\n* [[トニートニー・チョッパー]] - [[大谷育江]]\n* [[ニコ・ロビン]] - [[山口由里子]]\n* [[フランキー (ONE PIECE)|フランキー]] - [[矢尾一樹]]\n* [[ブルック (ONE PIECE)|ブルック]] - [[チョー (俳優)|チョー]]",&charaList);
+		assert(charaList.size() == 9);
+	}
+	{//テーブルレイアウトパティーン
+		std::vector<FantasicCharaSt> charaList;
+		bool r = findFantasicChara(L"ガールフレンド(仮)",L"\n== 登場キャラクター ==\n登場するキャラクターは、一部の限定カードを除き'''聖櫻学園'''の生徒・関係者となっている。（プレイヤーキャラクターは2年生の設定）\n\n{| border=1 class=wikitable style=background:#ffffff; font-size:smaller;\n! 名前 !! 誕生日 !! 学年 !! 所属 !! 声優\n|-\n|colspan=5 style=background:#ffcccc; text-align:center; font-weight:bold;|SWEET\n|-\n|朝比奈桃子（あさひな ももこ）||7月19日||1年生||軽音楽部||[[小倉唯]] !--2期追加-- \n|-\n|浅見景（あさみ けい）||4月12日||3年生||バレー部||[[伊藤美来]]\n|-",&charaList);
+		assert(charaList.size() == 2);
+		assert(charaList[0].name == L"朝比奈桃子");
+		assert(charaList[0].yomi == L"あさひなももこ");
+		assert(charaList[0].actor1 == L"小倉唯");
+		assert(charaList[0].actor2 == L"");
+
+		assert(charaList[1].name == L"浅見景");
+		assert(charaList[1].yomi == L"あさみけい");
+		assert(charaList[1].actor1 == L"伊藤美来");
+		assert(charaList[1].actor2 == L"");
+	}
+	{
+		std::vector<FantasicCharaSt> charaList;
+		bool r = findFantasicChara(L"都立水商!",L"\n== 登場人物 ==\n=== 教師 ===\n; 田辺圭介（たなべ けいすけ）/24歳: 主人公。社会科の教師で、水商第一寮長、フーゾク科の担任。前の学校で生徒とのトラブルがあり都立水商へ異動。何でも首を突っ込むお節介な存在。だが、いつもそのおかげで都立水商に貢献している。酒を飲むと理性を失くすほど悪酔いし、友人を何人も失くしている。吉岡に惚れており、吉岡からも好かれているが、互いの思いには気づいていない。また複数の女性や一部の男性から好意を持たれるものの、超鈍感なために告白を受けるまでそれに気がつかなかった。最終的に吉岡と結婚し、北海道に新設された姉妹校へ転任する。\n; 矢倉茂夫（やぐら しげお）: 都立水商の校長。いろんな意味で凄い人。お水の世界は落ちこぼれの世界ではないと常に語っており、学校のためならば自分を犠牲にもしかねない人物。\n\n",&charaList);
+		assert(charaList[0].name == L"田辺圭介");
+		assert(charaList[0].yomi == L"たなべけいすけ");
+		assert(charaList[0].actor1 == L"");
+		assert(charaList[0].actor2== L"");
+		assert(charaList[1].name == L"矢倉茂夫");
+		assert(charaList[1].yomi == L"やぐらしげお");
+		assert(charaList[1].actor1 == L"");
+		assert(charaList[1].actor2== L"");
+		assert(charaList.size() == 2);
+	}
+	{
 		//こんなのパース出るわけ無いだろう。[[劉備]]ガンダムとか、いいかげんにしろ
 		std::vector<FantasicCharaSt> charaList;
 		bool r = findFantasicChara(L"BB戦士三国伝",L">\n; [[劉備]]ガンダム（[[ガンダム (架空の兵器)|RX-78-2 ガンダム]]）\n: 声 - [[梶裕貴]]\n: '''龍帝を継ぐ者'''。本作の[[主人公]]。三璃紗の北部、幽州の楼桑村出身の若きサムライ。かつての白龍頑駄無（白龍大帝）同様、遥か昔に三璃紗を治めていた古代の英雄・三侯のひとりである'''龍帝'''の血をひき、その魂を受け継ぐ若者。決して悪を許さず、正義のためには何者にも恐れず立ち向かう侠の中の侠で、義に厚く頼れる兄貴分として慕われ、彼の元に多くの武将達が集う。曲がったことが大嫌いな熱血漢だが、当初は若さと義侠心ゆえに直情のまま行動しがちであった。普段は優しい陽気な性格だが、楽天的なお人よしでもあるため、ややドジで[[天然ボケ]]な一面もある。\n: [[桃園の誓い]]の後に反董卓連合に参加し、虎牢城の戦いでは後に宿敵となる曹操を始めとする様々な侠たちの信念や死とぶつかり戸惑っていたが、己が正義を定め、戦いに身を投じることを決意する。",&charaList);
@@ -2968,19 +3066,6 @@ SEXYTEST()
 	}
 	{
 		std::vector<FantasicCharaSt> charaList;
-		bool r = findFantasicChara(L"都立水商!",L"\n== 登場人物 ==\n=== 教師 ===\n; 田辺圭介（たなべ けいすけ）/24歳: 主人公。社会科の教師で、水商第一寮長、フーゾク科の担任。前の学校で生徒とのトラブルがあり都立水商へ異動。何でも首を突っ込むお節介な存在。だが、いつもそのおかげで都立水商に貢献している。酒を飲むと理性を失くすほど悪酔いし、友人を何人も失くしている。吉岡に惚れており、吉岡からも好かれているが、互いの思いには気づいていない。また複数の女性や一部の男性から好意を持たれるものの、超鈍感なために告白を受けるまでそれに気がつかなかった。最終的に吉岡と結婚し、北海道に新設された姉妹校へ転任する。\n; 矢倉茂夫（やぐら しげお）: 都立水商の校長。いろんな意味で凄い人。お水の世界は落ちこぼれの世界ではないと常に語っており、学校のためならば自分を犠牲にもしかねない人物。\n\n",&charaList);
-		assert(charaList[0].name == L"田辺圭介");
-		assert(charaList[0].yomi == L"たなべけいすけ");
-		assert(charaList[0].actor1 == L"");
-		assert(charaList[0].actor2== L"");
-		assert(charaList[1].name == L"矢倉茂夫");
-		assert(charaList[1].yomi == L"やぐらしげお");
-		assert(charaList[1].actor1 == L"");
-		assert(charaList[1].actor2== L"");
-		assert(charaList.size() == 2);
-	}
-	{
-		std::vector<FantasicCharaSt> charaList;
 		bool r = findFantasicChara(L"ホワイトアウト",L"\n== 登場人物 ==\n=== 奥遠和ダム ===\n;富樫輝男：[[織田裕二]]\n;:奥遠和ダム作業員。事件前年[[11月]]、山に来ていた遭難者(実はテロリストのメンバー)を助けるために同僚の吉岡和志と救助に出かけたが、吉岡が死亡、彼が生き残った。吉岡の婚約者である平川千晶らを助けるためにたった一人でテロリストに挑む。\n;:漫画版ではある程度AKを使いこなしているような描写がされたが、映画版では演じた織田の意向から、銃の扱いは素人である描写がされている。\n;平川千晶：[[松嶋菜々子]]\n;:東京で仕事をしている、吉岡和志の婚約者。彼がどのような仕事をしていたのかに対する関心から、奥遠和を訪れるが、そこで人質になり給仕係としてこき使われてしまう。\n;:テロリストのメンバーの一人である、笠原についてはその異質性を見抜いていた。また、映画では終始富樫の事を「吉岡を見殺しにした」として憎んでおり、作中では健二を通して手に入れた木嶋のAKで桑名を射殺するシーンが追加されている。\n;吉岡和志：[[石黒賢]]\n;:富樫の同僚で千晶の婚約者。原作の中では、富樫を描いたところでは「吉岡」、千晶を描いたところでは「和志」と書かれている。遭難者救出の最中に足を折って富樫に救助を呼ぶように指示し、遭難者2名と共にビバークするもその後遺体となって収容されてしまう。原作では遭難者の一人を運んでいる最中に強風にあおられて坂道を転落して足を折るが、映画では背負っていた遭難者が突然暴れ出した為に坂道を転落して足を折るという描写になっている。また、漫画では足場の雪が突然崩れ、これに巻き込まれて足を折るという描写になっている。\n",&charaList);
 		assert(charaList.size() == 3);
 
@@ -2995,18 +3080,14 @@ SEXYTEST()
 	{
 		std::vector<FantasicCharaSt> charaList;
 		bool r = findFantasicChara(L"X JAPAN Virtual Shock 001",L"\n== 登場人物 ==\n;主人公\n:プレーヤー自身。Ｘ ＪＡＰＡＮのライブチケットを入手できなかったが、カメラマンと勘違いされてドーム内に潜入することになる。\n=== X JAPANメンバー ===\n;TOSHI\n:彼の楽屋に入るとスタッフからの電話が鳴り、東京ドームの４階へ行く。この時、Ｔｏｓｈｉがカメラ目線で最初と最後の時にピースサインをするので、必ず撮影しておく必要がある。ちなみに彼の楽屋にはアコースティックギターが置いてある。\n;hide\n:日本酒が好物。彼のイベントで日本酒を渡すと主人公を気に入り、ｈｉｄｅと日本酒を飲む。間違ったアイテムを渡すと最悪の場合怒り出してしまいゲームオーバーになる。ちなみにワインを渡してしまう場合、彼の名演技を見る事ができるが、これもゲームオーバーになるので、注意が必要。\n;PATA\n;HEATH",&charaList);
-		assert(charaList.size() == 3);
-		assert(charaList[0].name == L"主人公");
+		assert(charaList.size() == 2);
+		assert(charaList[0].name == L"TOSHI");
 		assert(charaList[0].yomi == L"");
 		assert(charaList[0].actor1 == L"");
 
-		assert(charaList[1].name == L"TOSHI");
+		assert(charaList[1].name == L"hide");
 		assert(charaList[1].yomi == L"");
 		assert(charaList[1].actor1 == L"");
-
-		assert(charaList[2].name == L"hide");
-		assert(charaList[2].yomi == L"");
-		assert(charaList[2].actor1 == L"");
 	}
 
 	{// === と = 3つで書くパティーン
@@ -3022,20 +3103,6 @@ SEXYTEST()
 		assert(charaList[1].actor1 == L"杉山優奈");
 		assert(charaList[1].actor2== L"");
 		assert(charaList.size() == 2);
-	}
-	{//テーブルレイアウトパティーン
-		std::vector<FantasicCharaSt> charaList;
-		bool r = findFantasicChara(L"ガールフレンド(仮)",L"\n== 登場キャラクター ==\n登場するキャラクターは、一部の限定カードを除き'''聖櫻学園'''の生徒・関係者となっている。（プレイヤーキャラクターは2年生の設定）\n\n{| border=1 class=wikitable style=background:#ffffff; font-size:smaller;\n! 名前 !! 誕生日 !! 学年 !! 所属 !! 声優\n|-\n|colspan=5 style=background:#ffcccc; text-align:center; font-weight:bold;|SWEET\n|-\n|朝比奈桃子（あさひな ももこ）||7月19日||1年生||軽音楽部||[[小倉唯]] !--2期追加-- \n|-\n|浅見景（あさみ けい）||4月12日||3年生||バレー部||[[伊藤美来]]\n|-",&charaList);
-		assert(charaList.size() == 2);
-		assert(charaList[0].name == L"朝比奈桃子");
-		assert(charaList[0].yomi == L"あさひなももこ");
-		assert(charaList[0].actor1 == L"小倉唯");
-		assert(charaList[0].actor2 == L"");
-
-		assert(charaList[1].name == L"浅見景");
-		assert(charaList[1].yomi == L"あさみけい");
-		assert(charaList[1].actor1 == L"伊藤美来");
-		assert(charaList[1].actor2 == L"");
 	}
 	{//{{独自研究}}{{出典の明記}}に邪魔されるパティーン せめてもっと下に書いてくれよ
 		std::vector<FantasicCharaSt> charaList;
