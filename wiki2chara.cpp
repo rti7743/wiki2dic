@@ -293,6 +293,8 @@ static bool checkGomiString(const std::wstring& str)
 		,L"中学生時代"
 		,L"高学生時代"
 		,L"大学生時代"
+		,L"少年"
+		,L"少女"
 		,L"幼馴染"
 		,L"幼少"
 		,L"老年"
@@ -501,6 +503,14 @@ static bool checkGomiString(const std::wstring& str)
 		,L"部下"
 		,L"元彼女"
 		,L"blackops"
+		,L"暴力"
+		,L"IRQ"
+		,L"KOR"
+		,L"AUS"
+		,L"USA"
+		,L"GBR"
+		,L"NGB"
+		,L"TMS"
 		,NULL
 	};
 	for(const WCHAR** p = strW0; *p ; p++)
